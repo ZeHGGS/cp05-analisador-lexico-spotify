@@ -13,7 +13,7 @@
 
 | Nome | RA |
 |---|---|
-| Diego Azevedo Dias Ignacio | 2392072 |
+| Diego Azevedo Dias Inacio | 2392072 |
 | Gabriella Pereira Rodrigues | 2334425 |
 | Giovanna Bispo Da Silva | 2367880 |
 | José Henrique Guimarães Galvão Silva | 249994 |
