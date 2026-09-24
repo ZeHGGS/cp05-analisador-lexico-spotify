@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analisador Léxico de Playlist</title>
+<meta name="description" content="Desafio CP05 — Tema 5: analisador léxico de comandos de playlist do Spotify, feito com Python e Lark.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme: light;
+    --bg:#f2f5f2;
+    --surface:#ffffff;
+    --surface-2:#e9efe9;
+    --ink:#101713;
+    --ink-2:#38463e;
+    --muted:#5f7068;
+    --line:#d6e0d8;
+    --accent:#0f8a3c;
+    --accent-ink:#0b6b2e;
+    --accent-soft:#e2f3e6;
+    --code-bg:#f8fafc;
+    --code-line:#e2e8f0;
+    --term-bg:#1e1e2e;
+    --term-ink:#e6e6f0;
+    --danger:#b91c1c;
+    --danger-soft:#fdecec;
+    /* cores dos tokens — as mesmas do dicionário CORES do notebook */
+    --t-reservada:#0f8a3c;
+    --t-texto:#c2410c;
+    --t-numero:#1d4ed8;
+    --t-tempo:#7c3aed;
+    --t-unidade:#0e7490;
+    --t-uri:#be185d;
+    --t-ident:#374151;
+    --t-ruido:#8a958f;
+    --shadow:0 1px 2px rgba(16,23,19,.06), 0 8px 24px -16px rgba(16,23,19,.28);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg:#0b100d;
+      --surface:#141b17;
+      --surface-2:#1b241e;
+      --ink:#e8f0ea;
+      --ink-2:#c2cfc7;
+      --muted:#93a59a;
+      --line:#27332c;
+      --accent:#33d17a;
+      --accent-ink:#8ff0b5;
+      --accent-soft:#12291c;
+      --code-bg:#121a15;
+      --code-line:#27332c;
+      --term-bg:#12171f;
+      --term-ink:#dfe7f2;
+      --danger:#f87171;
+      --danger-soft:#2a1717;
+      --t-reservada:#33d17a;
+      --t-texto:#fb923c;
+      --t-numero:#7aa2ff;
+      --t-tempo:#c4a2ff;
+      --t-unidade:#4dd6e8;
+      --t-uri:#ff7ab2;
+      --t-ident:#c2cfc7;
+      --t-ruido:#6d7c74;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#0b100d; --surface:#141b17; --surface-2:#1b241e;
+    --ink:#e8f0ea; --ink-2:#c2cfc7; --muted:#93a59a; --line:#27332c;
+    --accent:#33d17a; --accent-ink:#8ff0b5; --accent-soft:#12291c;
+    --code-bg:#121a15; --code-line:#27332c; --term-bg:#12171f; --term-ink:#dfe7f2;
+    --danger:#f87171; --danger-soft:#2a1717;
+    --t-reservada:#33d17a; --t-texto:#fb923c; --t-numero:#7aa2ff; --t-tempo:#c4a2ff;
+    --t-unidade:#4dd6e8; --t-uri:#ff7ab2; --t-ident:#c2cfc7; --t-ruido:#6d7c74;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.9);
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size:16px; line-height:1.65;
+  }
+  img{max-width:100%; height:auto}
+  a{color:var(--accent-ink); text-decoration-thickness:1px; text-underline-offset:2px}
+  a:hover{color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:4px}
+  code, kbd{font-family:"IBM Plex Mono", ui-monospace, Consolas, monospace; font-size:.88em}
+  h1,h2,h3{font-family:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif; text-wrap:balance; line-height:1.15; margin:0}
+  p{margin:0}
+
+  .wrap{width:min(1020px, 100%); margin-inline:auto; padding-inline:20px}
+
+  /* ---------- topo ---------- */
+  .hero{padding-block:56px 34px; border-bottom:1px solid var(--line); background:
+      radial-gradient(120% 90% at 12% -10%, var(--accent-soft) 0%, transparent 60%);}
+  .eyebrow{font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600; color:var(--accent-ink); margin-bottom:14px}
+  .hero h1{font-size:clamp(2rem, 5.2vw, 3.2rem); font-weight:800; letter-spacing:-.02em; max-width:18ch}
+  .hero .lead{margin-top:14px; font-size:1.08rem; color:var(--ink-2); max-width:62ch}
+  .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; padding:0; list-style:none}
+  .chip{font-size:.8rem; font-weight:500; color:var(--ink-2); background:var(--surface);
+        border:1px solid var(--line); border-radius:999px; padding:5px 12px}
+  .chip b{color:var(--ink); font-variant-numeric:tabular-nums}
+  .actions{display:flex; flex-wrap:wrap; gap:10px; margin-top:26px}
+  .btn{display:inline-flex; align-items:center; gap:8px; font-size:.92rem; font-weight:600;
+       padding:10px 18px; border-radius:999px; text-decoration:none; border:1px solid var(--line);
+       background:var(--surface); color:var(--ink); transition:transform .12s ease, box-shadow .12s ease}
+  .btn:hover{transform:translateY(-1px); box-shadow:var(--shadow); color:var(--ink)}
+  .btn--primary{background:var(--accent); border-color:transparent; color:#03180c}
+  .btn--primary:hover{color:#03180c}
+  :root[data-theme="dark"] .btn--primary, :root:not([data-theme="light"]) .btn--primary{color:#052113}
+
+  /* ---------- navegação ---------- */
+  .subnav{position:sticky; top:0; z-index:20; background:color-mix(in srgb, var(--bg) 88%, transparent);
+          backdrop-filter:blur(8px); border-bottom:1px solid var(--line)}
+  .subnav ul{display:flex; gap:4px; margin:0; padding:0; list-style:none; overflow-x:auto; scrollbar-width:thin}
+  .subnav a{display:block; white-space:nowrap; padding:12px 12px; font-size:.86rem; font-weight:500;
+            color:var(--muted); text-decoration:none; border-bottom:2px solid transparent}
+  .subnav a:hover{color:var(--ink); border-bottom-color:var(--accent)}
+
+  /* ---------- seções ---------- */
+  section{padding-block:52px; border-bottom:1px solid var(--line)}
+  section > .wrap > h2{font-size:clamp(1.4rem,3vw,1.85rem); font-weight:700; letter-spacing:-.01em}
+  .kicker{font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:8px}
+  .prose{max-width:68ch; color:var(--ink-2)}
+  .prose p + p{margin-top:14px}
+  .stack{display:flex; flex-direction:column; gap:22px}
+  h3{font-size:1.05rem; font-weight:600; margin-top:6px}
+
+  /* ---------- código colorido ---------- */
+  .code{background:var(--code-bg); border:1px solid var(--code-line); border-radius:var(--radius);
+        padding:16px 18px; overflow-x:auto; font-family:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+        font-size:.86rem; line-height:1.8; white-space:pre; color:var(--t-ident)}
+  .k{color:var(--t-reservada); font-weight:600}
+  .s{color:var(--t-texto); font-weight:600}
+  .n{color:var(--t-numero); font-weight:600}
+  .t{color:var(--t-tempo); font-weight:600}
+  .u{color:var(--t-unidade); font-weight:600}
+  .r{color:var(--t-uri); font-weight:600}
+  .i{color:var(--t-ident); font-weight:600}
+  .c{color:var(--t-ruido)}
+  .code--plain{color:var(--ink-2)}
+
+  .legend{display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:14px; padding:0; list-style:none;
+          font-size:.8rem; color:var(--muted)}
+  .legend li{display:flex; align-items:center; gap:7px}
+  .dot{width:9px; height:9px; border-radius:3px; flex:none}
+
+  /* ---------- figuras ---------- */
+  figure{margin:0; display:flex; flex-direction:column; gap:10px}
+  figure img{border:1px solid var(--line); border-radius:var(--radius); background:#fff; box-shadow:var(--shadow)}
+  figcaption{font-size:.84rem; color:var(--muted); max-width:66ch}
+  .shot-sm img{max-width:min(620px, 100%)}
+  .shot-md img{max-width:min(780px, 100%)}
+
+  /* ---------- tabelas ---------- */
+  .table-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface)}
+  table{border-collapse:collapse; width:100%; font-size:.88rem; min-width:560px}
+  caption{text-align:left; font-size:.84rem; color:var(--muted); padding:12px 14px 0}
+  th,td{padding:9px 14px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
+  thead th{font-size:.74rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600;
+           background:var(--surface-2); border-bottom:1px solid var(--line); position:sticky; top:0}
+  tbody tr:last-child td{border-bottom:none}
+  td code{color:var(--ink); background:var(--surface-2); padding:1px 5px; border-radius:5px; white-space:nowrap}
+  td.re code{white-space:pre; color:var(--ink-2)}
+  .tok{font-weight:600; font-family:"IBM Plex Mono", monospace; font-size:.84rem}
+  .num{text-align:center; font-variant-numeric:tabular-nums}
+
+  /* ---------- escada de prioridade ---------- */
+  .ladder{display:flex; flex-direction:column; gap:6px; margin-top:8px; list-style:none; padding:0}
+  .rung{display:grid; grid-template-columns:52px 1fr; align-items:stretch; gap:12px;
+        background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+  .rung .p{display:flex; align-items:center; justify-content:center; font-family:"IBM Plex Mono",monospace;
+           font-weight:600; font-size:.95rem; color:#03180c; background:var(--accent)}
+  :root[data-theme="dark"] .rung .p, :root:not([data-theme="light"]) .rung .p{color:#052113}
+  .rung .body{padding:10px 14px 11px 2px}
+  .rung .terms{font-family:"IBM Plex Mono",monospace; font-size:.82rem; font-weight:600; color:var(--ink)}
+  .rung .why{font-size:.85rem; color:var(--muted)}
+
+  /* ---------- destaques ---------- */
+  .note{border-left:3px solid var(--accent); background:var(--surface); padding:14px 18px;
+        border-radius:0 10px 10px 0; font-size:.92rem; color:var(--ink-2); max-width:70ch}
+  .note--danger{border-left-color:var(--danger); background:var(--danger-soft)}
+  .grid-2{display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:18px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px}
+  .card h3{margin:0 0 8px}
+  .card ul{margin:0; padding-left:18px; color:var(--ink-2); font-size:.92rem}
+  .card li + li{margin-top:5px}
+
+  .cases{display:flex; flex-direction:column; gap:14px; padding:0; margin:0; list-style:none; counter-reset:caso}
+  .cases > li{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px}
+  .cases h3{display:flex; align-items:baseline; gap:10px; font-size:.98rem; margin:0 0 10px}
+  .tokens-badge{font-family:"IBM Plex Mono",monospace; font-size:.75rem; font-weight:600; color:var(--accent-ink);
+                background:var(--accent-soft); border-radius:999px; padding:3px 10px; white-space:nowrap}
+
+  .team{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; padding:0; margin:18px 0 0; list-style:none}
+  .team li{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:13px 16px}
+  .team .ra{display:block; font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--muted); margin-top:2px}
+
+  footer{padding-block:40px 56px; color:var(--muted); font-size:.86rem}
+  footer p + p{margin-top:8px}
+
+  .theme-toggle{position:fixed; right:16px; bottom:16px; z-index:30; width:42px; height:42px; border-radius:50%;
+    border:1px solid var(--line); background:var(--surface); color:var(--ink); font-size:1rem; cursor:pointer;
+    box-shadow:var(--shadow); display:grid; place-items:center}
+  .skip{position:absolute; left:-9999px}
+  .skip:focus{left:16px; top:16px; z-index:50; background:var(--surface); padding:10px 16px; border-radius:8px}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important; scroll-behavior:auto !important} }
+  html{scroll-behavior:smooth; scroll-padding-top:60px}
+  @media (max-width:520px){
+    .hero{padding-block:36px 26px}
+    .rung{grid-template-columns:44px 1fr}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Desafio CP05 · Tema 5 · Compiladores</p>
+    <h1>Analisador léxico de comandos de playlist</h1>
+    <p class="lead">Uma mini-linguagem em português para manipular playlists do Spotify — e o lexer que
+      transforma esse texto em tokens, com tratamento de prioridade, erros com linha e coluna e um
+      pós-processamento que converte lexemas em valores.</p>
+
+    <ul class="chips">
+      <li class="chip"><b>23</b> tipos de token</li>
+      <li class="chip"><b>13</b> palavras reservadas</li>
+      <li class="chip"><b>8</b> literais com regex</li>
+      <li class="chip"><b>3+3</b> casos de teste</li>
+      <li class="chip">Python + Lark</li>
+    </ul>
+
+    <div class="actions">
+      <a class="btn btn--primary" href="https://colab.research.google.com/github/SEU-USUARIO/cp05-analisador-lexico-spotify/blob/main/analisador_lexico_spotify_tema5.ipynb">▶ Abrir no Colab</a>
+      <a class="btn" href="analisador_lexico_spotify_tema5.ipynb">📓 Ver o notebook</a>
+      <a class="btn" href="https://github.com/SEU-USUARIO/cp05-analisador-lexico-spotify">⌥ Repositório</a>
+    </div>
+  </div>
+</header>
+
+<nav class="subnav" aria-label="Seções da página">
+  <div class="wrap">
+    <ul>
+      <li><a href="#linguagem">A linguagem</a></li>
+      <li><a href="#tokens">Tokens</a></li>
+      <li><a href="#prioridades">Prioridades</a></li>
+      <li><a href="#diario">Diário de ambiguidade</a></li>
+      <li><a href="#erros">Erros léxicos</a></li>
+      <li><a href="#testes">Casos de teste</a></li>
+      <li><a href="#bonus">Bônus</a></li>
+      <li><a href="#equipe">Equipe</a></li>
+    </ul>
+  </div>
+</nav>
+
+<main id="conteudo">
+
+<section id="linguagem">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">A linguagem</p>
+      <h2>Comandos que qualquer pessoa escreveria</h2>
+    </div>
+    <p class="prose">Assistentes de voz e bots de playlist recebem <b>texto</b> e precisam virar chamada de API.
+      O primeiro passo é sempre o mesmo: separar e classificar as peças do texto. É isto que a pessoa digita:</p>
+
+    <div class="code code--plain">PLAYLIST "Treino" ADICIONAR "Nome da faixa" DURACAO 03:45 GENERO rock ORDENAR popularidade</div>
+
+    <p class="prose">E é assim que o lexer devolve o mesmo texto, com cada lexema pintado pela categoria do seu
+      token — exatamente o que o <i>syntax highlight</i> de um editor faz:</p>
+
+    <figure>
+      <img src="docs/01-texto-colorido.png" alt="Comando de playlist com cada lexema colorido pela categoria do token reconhecida pelo lexer." width="1848" height="137">
+      <figcaption>Saída de <code>texto_colorido_html</code>, a primeira coisa que a interface mostra.</figcaption>
+    </figure>
+
+    <ul class="legend" aria-label="Cores por categoria de token">
+      <li><span class="dot" style="background:var(--t-reservada)"></span>palavra reservada</li>
+      <li><span class="dot" style="background:var(--t-texto)"></span>texto entre aspas</li>
+      <li><span class="dot" style="background:var(--t-tempo)"></span>tempo e data</li>
+      <li><span class="dot" style="background:var(--t-numero)"></span>número</li>
+      <li><span class="dot" style="background:var(--t-unidade)"></span>percentual e multiplicador</li>
+      <li><span class="dot" style="background:var(--t-uri)"></span>URI e e-mail</li>
+      <li><span class="dot" style="background:var(--t-ident)"></span>identificador</li>
+    </ul>
+
+    <figure class="shot-sm">
+      <img src="docs/02-tabela-tokens.png" loading="lazy" alt="Tabela com os dez tokens do comando básico: tipo, lexema, linha e coluna." width="782" height="671">
+      <figcaption>A saída propriamente dita: o fluxo de tokens, cada um com tipo, lexema, linha e coluna.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="tokens">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Tabela de tokens</p>
+      <h2>23 tipos de token, em quatro famílias</h2>
+    </div>
+    <p class="prose">Dois tokens especiais do domínio, oito literais definidos por expressão regular,
+      treze palavras reservadas e dois genéricos — mais dois padrões que o lexer descarta.</p>
+
+    <h3>Especiais do domínio</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Token</th><th>Descrição</th><th>Regex</th><th>Exemplo</th><th class="num">Prio</th></tr></thead>
+        <tbody>
+          <tr><td class="tok" style="color:var(--t-uri)">URI_SPOTIFY</td><td>URI nativa do Spotify (ID de 22 caracteres base62)</td><td class="re"><code>/spotify:(?:track|album|artist|playlist):[A-Za-z0-9]{22}\b/i</code></td><td><code>spotify:track:4cOd…</code></td><td class="num"><b>9</b></td></tr>
+          <tr><td class="tok" style="color:var(--t-uri)">EMAIL</td><td>E-mail de colaborador — dado sensível, tratado pela LGPD</td><td class="re"><code>/[A-Za-z0-9._%+\-]+@[A-Za-z0-9\-]+(?:\.[A-Za-z]{2,})+/</code></td><td><code>diego@empresa.com.br</code></td><td class="num"><b>8</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Literais com regex</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Token</th><th>Descrição</th><th>Regex</th><th>Exemplo</th><th class="num">Prio</th></tr></thead>
+        <tbody>
+          <tr><td class="tok" style="color:var(--t-tempo)">DATA</td><td>Data de agendamento</td><td class="re"><code>/\d{2}\/\d{2}\/\d{4}/</code></td><td><code>20/07/2026</code></td><td class="num">7</td></tr>
+          <tr><td class="tok" style="color:var(--t-tempo)">TEMPO</td><td>Duração <code>mm:ss</code>, segundos de 00 a 59</td><td class="re"><code>/\d{1,2}:[0-5]\d/</code></td><td><code>03:45</code></td><td class="num">7</td></tr>
+          <tr><td class="tok" style="color:var(--t-unidade)">PERCENTUAL</td><td>Volume em porcentagem</td><td class="re"><code>/\d{1,3}%/</code></td><td><code>80%</code></td><td class="num">6</td></tr>
+          <tr><td class="tok" style="color:var(--t-unidade)">MULTIPLICADOR</td><td>Repetições ou cópias de uma faixa</td><td class="re"><code>/\d+x\b/i</code></td><td><code>3x</code></td><td class="num">6</td></tr>
+          <tr><td class="tok" style="color:var(--t-texto)">TEXTO</td><td>Nome de playlist ou faixa, entre aspas</td><td class="re"><code>/"[^"\n]*"/</code></td><td><code>"Treino"</code></td><td class="num">4</td></tr>
+          <tr><td class="tok" style="color:var(--t-numero)">NUMERO</td><td>Literal numérico inteiro</td><td class="re"><code>/\d+/</code></td><td><code>25</code></td><td class="num">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Palavras reservadas — todas com <code>/i</code> e <code>\b</code></h3>
+    <div class="table-scroll">
+      <table>
+        <caption>O <code>/i</code> aceita maiúsculas e minúsculas; o <code>\b</code> impede que o token case o
+          começo de uma palavra maior (<code>playlistao</code> continua sendo um <code>IDENT</code>).</caption>
+        <thead><tr><th>Token</th><th>O que comanda</th><th>Regex</th><th>Exemplo</th><th class="num">Prio</th></tr></thead>
+        <tbody>
+          <tr><td class="tok" style="color:var(--t-reservada)">PLAYLIST</td><td>Alvo do comando</td><td class="re"><code>/playlist\b/i</code></td><td><code>PLAYLIST</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">CRIAR</td><td>Cria uma playlist</td><td class="re"><code>/criar\b/i</code></td><td><code>criar</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">ADICIONAR</td><td>Inclui faixa</td><td class="re"><code>/adicionar\b/i</code></td><td><code>Adicionar</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">REMOVER</td><td>Exclui faixa</td><td class="re"><code>/remover\b/i</code></td><td><code>REMOVER</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">TOCAR</td><td>Reproduz</td><td class="re"><code>/tocar\b/i</code></td><td><code>TOCAR</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">ORDENAR</td><td>Ordena por um critério</td><td class="re"><code>/ordenar\b/i</code></td><td><code>ORDENAR</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">EMBARALHAR</td><td><i>Shuffle</i></td><td class="re"><code>/embaralhar\b/i</code></td><td><code>EMBARALHAR</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">DURACAO</td><td>Duração da faixa — aceita acento e cedilha</td><td class="re"><code>/dura[cç][aã]o\b/i</code></td><td><code>duração</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">GENERO</td><td>Gênero musical — aceita acento</td><td class="re"><code>/g[eê]nero\b/i</code></td><td><code>gênero</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">VOLUME</td><td>Volume de reprodução</td><td class="re"><code>/volume\b/i</code></td><td><code>VOLUME</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">LIMITE</td><td>Limite de faixas</td><td class="re"><code>/limite\b/i</code></td><td><code>LIMITE</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">POR</td><td>Autoria: <code>POR "artista"</code></td><td class="re"><code>/por\b/i</code></td><td><code>POR</code></td><td class="num">5</td></tr>
+          <tr><td class="tok" style="color:var(--t-reservada)">COMPARTILHAR</td><td>Compartilha com um colaborador</td><td class="re"><code>/compartilhar\b/i</code></td><td><code>COMPARTILHAR</code></td><td class="num">5</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Genéricos e ruído descartado</h3>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Token</th><th>Descrição</th><th>Regex</th><th>Exemplo</th><th class="num">Prio</th></tr></thead>
+        <tbody>
+          <tr><td class="tok" style="color:var(--t-ident)">IDENT</td><td>Identificador livre: gênero, critério de ordenação</td><td class="re"><code>/[A-Za-zÀ-ÿ_][A-Za-zÀ-ÿ0-9_\-]*/</code></td><td><code>popularidade</code></td><td class="num">1</td></tr>
+          <tr><td class="tok" style="color:var(--t-ruido)">VIRGULA</td><td>Separador de lista</td><td class="re"><code>/,/</code></td><td><code>,</code></td><td class="num">1</td></tr>
+          <tr><td class="tok" style="color:var(--t-ruido)">COMENTARIO</td><td>Comentário de linha — <b>ignorado</b></td><td class="re"><code>/#[^\n]*/</code></td><td><code># nota da equipe</code></td><td class="num">—</td></tr>
+          <tr><td class="tok" style="color:var(--t-ruido)">espaços</td><td>Espaço, tabulação e quebra de linha — <b>ignorados</b></td><td class="re"><code>/[ \t\r\n]+/</code></td><td>—</td><td class="num">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="prioridades">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Prioridades</p>
+      <h2>A escada que resolve os conflitos</h2>
+    </div>
+    <p class="prose">Quando dois terminais casam na mesma posição, o Lark desempata pela prioridade.
+      A regra do projeto é simples: <b>quanto mais específico o padrão, mais alta a prioridade</b>.</p>
+
+    <ol class="ladder">
+      <li class="rung"><span class="p">9</span><div class="body"><div class="terms">URI_SPOTIFY</div><div class="why">vence <code>IDENT</code> + <code>:</code> e o falso <code>TEMPO</code> dentro da URI</div></div></li>
+      <li class="rung"><span class="p">8</span><div class="body"><div class="terms">EMAIL</div><div class="why">vence <code>IDENT</code> + <code>@</code></div></div></li>
+      <li class="rung"><span class="p">7</span><div class="body"><div class="terms">DATA · TEMPO</div><div class="why">vencem <code>NUMERO</code> — senão <code>03:45</code> viraria <code>03</code> e um erro no <code>:</code></div></div></li>
+      <li class="rung"><span class="p">6</span><div class="body"><div class="terms">PERCENTUAL · MULTIPLICADOR</div><div class="why">vencem <code>NUMERO</code>: <code>80%</code> e <code>3x</code> são unidades do domínio</div></div></li>
+      <li class="rung"><span class="p">5</span><div class="body"><div class="terms">as 13 palavras reservadas</div><div class="why">vencem <code>IDENT</code>; o <code>\b</code> evita casar prefixos de palavras maiores</div></div></li>
+      <li class="rung"><span class="p">4</span><div class="body"><div class="terms">TEXTO</div><div class="why">literal delimitado por aspas, não colide com o restante</div></div></li>
+      <li class="rung"><span class="p">2</span><div class="body"><div class="terms">NUMERO</div><div class="why">genérico: só depois dos numéricos especializados</div></div></li>
+      <li class="rung"><span class="p">1</span><div class="body"><div class="terms">IDENT · VIRGULA</div><div class="why">o <i>fallback</i> mais genérico da linguagem</div></div></li>
+    </ol>
+
+    <figure>
+      <img src="docs/03-uri-e-comentarios.png" loading="lazy" alt="Entrada com dois comentários e uma URI do Spotify, seguida da tabela com os treze tokens resultantes." width="1848" height="1030">
+      <figcaption>É a escada que faz a URI inteira virar <b>um token só</b> e o comentário <b>não virar token nenhum</b> —
+        sem deixar de contar a linha: o primeiro token está na linha 2.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="diario">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Diário de ambiguidade</p>
+      <h2>Dois pontos, dois significados</h2>
+    </div>
+    <div class="prose">
+      <p>O conflito mais relevante do projeto apareceu no mesmo estilo do caso <code>pix@loja.com.br</code> do
+        enunciado, mas na versão Spotify: o lexema <b><code>spotify:track:4cOdK2wGLETKBW3PvgPWqT</code></b>.</p>
+      <p>Na primeira versão da gramática existiam apenas <code>IDENT</code>, <code>NUMERO</code> e
+        <code>TEMPO</code>. O lexer quebrava a URI em <code>IDENT("spotify")</code> e lançava
+        <code>UnexpectedCharacters</code> no <code>:</code> — ou, pior, casava <code>TEMPO</code> em pedaços que
+        pareciam <code>mm:ss</code>. O <code>:</code> é ambíguo nesta linguagem porque serve para
+        <b>duas coisas diferentes</b>: separar minutos de segundos em <code>DURACAO 03:45</code> e separar os
+        campos de uma URI.</p>
+      <p>A solução foi criar o terminal <code>URI_SPOTIFY</code> com <b>prioridade 9</b> — a maior de todas — e uma
+        regex bem restritiva, que exige o prefixo literal, um tipo conhecido e exatamente 22 caracteres base62.
+        Como o Lark desempata pela prioridade do terminal, a URI é consumida por inteiro antes que
+        <code>IDENT</code> ou <code>TEMPO</code> tenham chance de agir; e como a regex é restritiva, ela nunca
+        "rouba" um <code>DURACAO 03:45</code> legítimo.</p>
+      <p>O mesmo raciocínio valeu para o <code>EMAIL</code> (prioridade 8, para não virar <code>IDENT</code> +
+        <code>@</code> inválido) e para o par <code>DATA</code>/<code>TEMPO</code> (prioridade 7 sobre o
+        <code>NUMERO</code>, que tem prioridade 2). Por fim, as 13 palavras reservadas ficaram com prioridade 5
+        contra o <code>IDENT</code> de prioridade 1, sempre com <code>\b</code>, para que <code>playlistao</code>
+        continue sendo um identificador comum e não <code>PLAYLIST</code> seguido de <code>ao</code>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="erros">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Erros léxicos</p>
+      <h2>Linha, coluna e duas dicas</h2>
+    </div>
+    <p class="prose">Cada erro informa a linha, a coluna e o caractere inesperado, repete a linha de código com um
+      marcador <code>^</code> embaixo do culpado e dá duas dicas: uma específica daquele caractere e outra listando
+      os comandos válidos da linguagem.</p>
+
+    <figure>
+      <img src="docs/05-erros-lexicos.png" loading="lazy" alt="As três mensagens de erro léxico, cada uma com linha, coluna, marcador e duas dicas." width="1768" height="1838">
+      <figcaption>Os três casos inválidos do notebook, com a mensagem que o lexer produz para cada um.</figcaption>
+    </figure>
+
+    <div class="table-scroll">
+      <table>
+        <caption>As oito dicas cadastradas em <code>DICAS_DESAFIO</code>.</caption>
+        <thead><tr><th class="num">Caractere</th><th>Dica exibida</th></tr></thead>
+        <tbody>
+          <tr><td class="num"><code>"</code></td><td>Aspas abertas e não fechadas</td></tr>
+          <tr><td class="num"><code>:</code></td><td>Duração inválida (use <code>mm:ss</code>, segundos de 00 a 59) ou URI incompleta</td></tr>
+          <tr><td class="num"><code>@</code></td><td>E-mail malformado em <code>COMPARTILHAR</code></td></tr>
+          <tr><td class="num"><code>%</code></td><td>Porcentagem inválida: 1 a 3 dígitos colados ao <code>%</code></td></tr>
+          <tr><td class="num"><code>/</code></td><td>Data fora do formato <code>dd/mm/aaaa</code></td></tr>
+          <tr><td class="num"><code>$</code></td><td>Símbolo monetário não pertence a esta linguagem</td></tr>
+          <tr><td class="num"><code>&amp;</code></td><td>Use <code>,</code> para separar itens de uma lista</td></tr>
+          <tr><td class="num"><code>'</code></td><td>Use aspas duplas para nomes</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note note--danger">No caso <code>DURACAO 03:75</code>, o erro cai no <code>:</code> da coluna 29 —
+      e não no <code>75</code>. Como <code>03:75</code> não casa com <code>TEMPO</code>, o <code>NUMERO</code> come
+      o <code>03</code> e sobra um <code>:</code> sem dono. Um bom lembrete de que a mensagem de erro de um
+      compilador nem sempre aponta para a causa exata do problema.</p>
+  </div>
+</section>
+
+<section id="testes">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Casos de teste</p>
+      <h2>Três válidos e três inválidos</h2>
+    </div>
+    <p class="prose">A função <code>testar</code> roda os seis casos de uma vez e imprime o resultado de cada um:
+      contagem de tokens nos válidos, linha, coluna e dica nos inválidos.</p>
+
+    <figure>
+      <img src="docs/06-console-testes.png" loading="lazy" alt="Saída do console com os seis casos de teste: três válidos com contagem de tokens e três inválidos com linha, coluna e dica." width="1872" height="352">
+      <figcaption>Saída de <code>testar(tokenizar_desafio, casos_desafio)</code>.</figcaption>
+    </figure>
+
+    <ol class="cases">
+      <li>
+        <h3>Comando básico <span class="tokens-badge">10 tokens</span></h3>
+        <div class="code"><span class="k">PLAYLIST</span> <span class="s">"Treino"</span> <span class="k">ADICIONAR</span> <span class="s">"Nome da faixa"</span> <span class="k">DURACAO</span> <span class="t">03:45</span> <span class="k">GENERO</span> <span class="i">rock</span> <span class="k">ORDENAR</span> <span class="i">popularidade</span></div>
+      </li>
+      <li>
+        <h3>Criação, URI e comentários <span class="tokens-badge">13 tokens</span></h3>
+        <div class="code"><span class="c"># monta a playlist de foco e limita o tamanho</span>
+<span class="k">CRIAR PLAYLIST</span> <span class="s">"Foco Total"</span> <span class="k">LIMITE</span> <span class="n">25</span> <span class="k">VOLUME</span> <span class="u">80%</span> <span class="k">EMBARALHAR</span>
+<span class="k">ADICIONAR</span> <span class="u">3x</span> <span class="r">spotify:track:4cOdK2wGLETKBW3PvgPWqT</span> <span class="k">POR</span> <span class="s">"Rick Astley"</span>  <span class="c"># faixa fixa</span></div>
+      </li>
+      <li>
+        <h3>Datas, acentos e compartilhamento <span class="tokens-badge">15 tokens</span></h3>
+        <figure>
+          <img src="docs/07-texto-colorido-v3.png" loading="lazy" alt="O terceiro caso válido colorido pelo lexer, com acentos, data e dois e-mails." width="1848" height="174">
+          <figcaption>Este caso prova três coisas de uma vez: <code>duração</code> e <code>gênero</code> são aceitos
+            com acento, <code>playlist</code> e <code>remover</code> funcionam em minúsculas, e cada e-mail vira um
+            token só.</figcaption>
+        </figure>
+      </li>
+    </ol>
+
+    <div class="table-scroll">
+      <table>
+        <caption>Os três casos inválidos e o erro que cada um produz.</caption>
+        <thead><tr><th>Caso</th><th>Entrada</th><th>Resultado</th></tr></thead>
+        <tbody>
+          <tr><td>Aspas não fechadas</td><td class="re"><code>PLAYLIST "Treino ADICIONAR "Faixa"</code></td><td>linha 1, coluna 34 <code>"</code></td></tr>
+          <tr><td>Duração fora do padrão</td><td class="re"><code>PLAYLIST "Treino" DURACAO 03:75 GENERO rock</code></td><td>linha 1, coluna 29 <code>:</code></td></tr>
+          <tr><td>Símbolo fora do alfabeto</td><td class="re"><code>VOLUME 80 $ ORDENAR popularidade</code></td><td>linha 1, coluna 11 <code>$</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="bonus">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Bônus</p>
+      <h2>Do lexema ao valor — e à LGPD</h2>
+    </div>
+    <p class="prose">A segunda aba da interface pega a lista de tokens e faz o trabalho seguinte: converte cada
+      lexema no valor que ele representa, mascara os dados pessoais e levanta alertas de regra de negócio.</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Conversões</h3>
+        <ul>
+          <li><code>TEMPO</code> → segundos (<code>12:05</code> vira <code>725</code>)</li>
+          <li><code>DATA</code> → <code>datetime.date</code></li>
+          <li><code>NUMERO</code>, <code>PERCENTUAL</code> e <code>MULTIPLICADOR</code> → <code>int</code></li>
+          <li><code>TEXTO</code> → string sem as aspas</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Mascaramento (LGPD)</h3>
+        <ul>
+          <li>e-mail → <code>d**********@empresa.com.br</code></li>
+          <li>URI → <code>spotify:track:4cOd**************PWqT</code></li>
+          <li>cada e-mail encontrado também vira um alerta, com a linha em que apareceu</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Resumo</h3>
+        <ul>
+          <li>total de tokens e de palavras reservadas usadas</li>
+          <li>faixas referenciadas</li>
+          <li>tempo total declarado, em <code>mm:ss</code> e em segundos</li>
+          <li>totais por tipo de token, do mais frequente ao menos</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Alertas</h3>
+        <ul>
+          <li>volume acima de 100%</li>
+          <li>faixa com menos de 30 segundos</li>
+          <li>nome vazio entre aspas</li>
+          <li>presença de dado pessoal</li>
+          <li>comando sem <code>PLAYLIST</code> ou <code>CRIAR</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <figure class="shot-md">
+      <img src="docs/04-pos-processamento.png" loading="lazy" alt="Painel de pós-processamento: resumo, totais por tipo de token, conversões com e-mails mascarados e alertas de LGPD." width="1146" height="1398">
+      <figcaption>A aba de pós-processamento para o terceiro caso válido — repare nos dois e-mails mascarados
+        e na data convertida para <code>2026-07-20</code>.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="equipe">
+  <div class="wrap stack">
+    <div>
+      <p class="kicker">Entrega</p>
+      <h2>Como executar e quem fez</h2>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Google Colab</h3>
+        <ul>
+          <li>Abra o notebook pelo botão <b>Abrir no Colab</b> no topo da página.</li>
+          <li>Descomente e rode a primeira célula: <code>!pip install -q lark ipywidgets</code>.</li>
+          <li>Execute todas as células em <i>Ambiente &gt; Executar tudo</i>.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Jupyter local</h3>
+        <ul>
+          <li><code>pip install lark ipywidgets notebook</code></li>
+          <li><code>jupyter notebook analisador_lexico_spotify_tema5.ipynb</code></li>
+          <li>No VS Code, instale também a extensão Jupyter.</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="note">O GitHub exibe o notebook, mas <b>não executa os widgets</b> — eles precisam de um kernel ativo.
+      Para usar a interface, abra no Colab.</p>
+
+    <h3>Integrantes</h3>
+    <ul class="team">
+      <li>Diego Azevedo Dias Ignacio<span class="ra">RA 2392072</span></li>
+      <li>Gabriella Pereira Rodrigues<span class="ra">RA 2334425</span></li>
+      <li>Giovanna Bispo Da Silva<span class="ra">RA 2367880</span></li>
+      <li>José Henrique Guimarães Galvão Silva<span class="ra">RA 249994</span></li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Desafio CP05 — Tema 5: comandos de playlist (Spotify). Construído com Python e
+      <a href="https://lark-parser.readthedocs.io/">Lark</a>.</p>
+    <p>As imagens desta página são as saídas HTML geradas pelo próprio notebook
+      (<code>texto_colorido_html</code>, <code>tabela_tokens_html</code>, <code>erro_lexico_html</code> e
+      <code>resumo_html</code>), capturadas em imagem.</p>
+  </div>
+</footer>
+
+<button class="theme-toggle" id="themeToggle" type="button" aria-label="Alternar tema claro e escuro">◐</button>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    try {
+      var salvo = localStorage.getItem('tema-spotilang');
+      if (salvo === 'dark' || salvo === 'light') root.setAttribute('data-theme', salvo);
+    } catch (e) { /* storage bloqueado: segue o tema do sistema */ }
+
+    btn.addEventListener('click', function () {
+      var atual = root.getAttribute('data-theme');
+      if (!atual) {
+        atual = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      var novo = atual === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', novo);
+      try { localStorage.setItem('tema-spotilang', novo); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>
