@@ -9,8 +9,6 @@
 [![Notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?logo=jupyter&logoColor=white)](analisador_lexico_spotify_tema5.ipynb)
 [![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ZeHGGS/cp05-analisador-lexico-spotify/blob/main/analisador_lexico_spotify_tema5.ipynb)
 
-🌐 **Página do projeto:** https://ZeHGGS.github.io/cp05-analisador-lexico-spotify/
-
 ### Integrantes
 
 | Nome | RA |
@@ -41,29 +39,6 @@ e é a forma mais direta de enxergar o que o lexer entendeu:
 A saída propriamente dita é o **fluxo de tokens**, cada um com tipo, lexema, linha e coluna:
 
 <img src="docs/02-tabela-tokens.png" width="560" alt="Tabela com os 10 tokens do comando básico, com lexema, linha e coluna">
-
----
-
-## 🚀 Como executar
-
-### Google Colab (recomendado)
-
-1. Clique no botão **Open in Colab** no topo deste README (ou faça upload de `analisador_lexico_spotify_tema5.ipynb`).
-2. Descomente e rode a primeira célula:
-   ```python
-   !pip install -q lark ipywidgets
-   ```
-3. Execute todas as células (`Ambiente > Executar tudo`).
-
-### Jupyter local
-
-```bash
-pip install lark ipywidgets notebook
-jupyter notebook analisador_lexico_spotify_tema5.ipynb
-```
-
-> A interface depende de `ipywidgets`. No VS Code, instale também a extensão Jupyter.
-> O GitHub exibe o notebook, mas **não executa os widgets** — eles precisam de um kernel ativo.
 
 ---
 
