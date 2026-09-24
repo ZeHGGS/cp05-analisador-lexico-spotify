@@ -7,11 +7,9 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Lark](https://img.shields.io/badge/Lark-1.3-8A2BE2)](https://lark-parser.readthedocs.io/)
 [![Notebook](https://img.shields.io/badge/Jupyter-notebook-F37626?logo=jupyter&logoColor=white)](analisador_lexico_spotify_tema5.ipynb)
-[![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SEU-USUARIO/cp05-analisador-lexico-spotify/blob/main/analisador_lexico_spotify_tema5.ipynb)
+[![Abrir no Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ZeHGGS/cp05-analisador-lexico-spotify/blob/main/analisador_lexico_spotify_tema5.ipynb)
 
-🌐 **Página do projeto:** https://SEU-USUARIO.github.io/cp05-analisador-lexico-spotify/
-
-<!-- ⚠️ Troque SEU-USUARIO pelo seu usuário do GitHub nos dois links acima. -->
+🌐 **Página do projeto:** https://ZeHGGS.github.io/cp05-analisador-lexico-spotify/
 
 ### Integrantes
 
