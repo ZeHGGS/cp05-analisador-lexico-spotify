@@ -1,0 +1,3 @@
+theme: jekyll-theme-cayman
+title: Analisador Léxico — Comandos de Playlist (Spotify)
+description: Desafio CP05 — Tema 5. Lexer em Python + Lark, com tabela de tokens, prioridades, erros léxicos e pós-processamento.
